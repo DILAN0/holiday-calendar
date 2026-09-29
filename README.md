@@ -1,2 +1,4 @@
 # holiday-calendar
-project for penzgtu
+ТУТ БУДЕТ ОПИСАНИЕ ПРОГРАММЫ КАКИЕ ТЕХНОЛОГИИ, СКРИНЫ И ТП
+
+
