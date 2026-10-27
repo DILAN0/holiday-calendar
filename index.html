@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Локальный Календарь MVP</title>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 1000px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .hidden { display: none !important; }
+        .auth-box { max-width: 360px; margin: 60px auto; padding: 25px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .auth-box input, .event-inputs input { width: 100%; padding: 11px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+        .auth-box input:focus, .event-inputs input:focus { border-color: #007bff; }
+        button { width: 100%; padding: 11px; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #0056b3; }
+        .header-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #f0f0f0; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .grid-header { background: #007bff; color: white; padding: 10px; text-align: center; font-weight: 600; border-radius: 4px; font-size: 14px; }
+        .day-cell { min-height: 100px; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .day-cell.today { background: #e6f7ff; border: 2px solid #007bff; }
+        .day-cell .num { font-weight: 700; font-size: 14px; color: #444; margin-bottom: 6px; }
+        .day-cell.today .num { color: #007bff; }
+        .badge { font-size: 11px; padding: 4px; margin: 2px 0; border-radius: 4px; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-weight: 500; }
+        .badge.holiday { background: #dc3545; }
+        .badge.custom { background: #28a745; cursor: pointer; }
+        .badge.custom:hover { background: #1e7e34; }
+        .event-inputs { margin-top: 25px; padding-top: 20px; border-top: 2px solid #f0f0f0; display: flex; gap: 12px; }
+        .event-inputs input { margin: 0; }
+        .event-inputs button { width: auto; padding: 0 20px; background: #28a745; }
+        .event-inputs button:hover { background: #218838; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Форма входа/регистрации -->
+    <div id="auth-section" class="auth-box">
+        <h3 style="text-align: center; margin-top:0; color:#333;">Вход в систему</h3>
+        <input type="email" id="email" placeholder="Email" value="student@penzgtu.ru">
+        <input type="password" id="password" placeholder="Пароль" value="password123">
+        <button onclick="handleLogin()" style="margin-bottom: 8px;">Войти</button>
+        <button onclick="handleRegister()" style="background:#6c757d;">Регистрация</button>
+        <p id="auth-msg" style="color:#dc3545; font-size:13px; text-align:center; margin-top:12px; font-weight:500;"></p>
+    </div>
+
+    <!-- Рабочая область календаря -->
+    <div id="calendar-section" class="hidden">
+        <div class="header-panel">
+            <h2 id="calendar-title" style="margin:0; color:#222; font-weight: 600;">Октябрь 2026</h2>
+            <button onclick="handleLogout()" style="width:auto; background:#dc3545; padding: 8px 18px;">Выйти</button>
+        </div>
+
+        <div class="calendar-grid" id="grid-container">
+            <div class="grid-header">Пн</div><div class="grid-header">Вт</div><div class="grid-header">Ср</div>
+            <div class="grid-header">Чт</div><div class="grid-header">Пт</div><div class="grid-header">Сб</div><div class="grid-header">Вс</div>
+        </div>
+
+        <div class="event-inputs">
+            <input type="text" id="event-title" placeholder="Описание события" style="flex:3;">
+            <input type="date" id="event-date" style="flex:1;">
+            <button onclick="addCustomEvent()">Добавить</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const BASE_URL = '/api';
+    let userToken = localStorage.getItem('py_token') || '';
+
+    if (userToken) showApp();
+
+    async function handleRegister() {
+        const res = await fetch(`${BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: el('email').value, password: el('password').value })
+        });
+        const data = await res.json();
+        if (res.ok) alert(data.message);
+        else el('auth-msg').innerText = data.detail || "Ошибка заполнения данных.";
+    }
+
+    async function handleLogin() {
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: el('email').value, password: el('password').value })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            userToken = data.token;
+            localStorage.setItem('py_token', userToken);
+            showApp();
+        } else {
+            el('auth-msg').innerText = data.detail;
+        }
+    }
+
+    function handleLogout() {
+        localStorage.removeItem('py_token');
+        location.reload();
+    }
+
+    function showApp() {
+        el('auth-section').classList.add('hidden');
+        el('calendar-section').classList.remove('hidden');
+        renderGrid();
+    }
+
+    async function renderGrid() {
+        const container = el('grid-container');
+        while (container.children.length > 7) { container.removeChild(container.lastChild); }
+
+        const res = await fetch(`${BASE_URL}/events`, { headers: { 'Authorization': `Bearer ${userToken}` } });
+        const allEvents = res.ok ? await res.json() : [];
+
+        // Календарная сетка учебного проекта: Октябрь 2026 года
+        const targetYear = 2026;
+        const targetMonth = 9; // Октябрь
+
+        el('calendar-title').innerText = `Октябрь ${targetYear} года`;
+
+        let startDay = new Date(targetYear, targetMonth, 1).getDay();
+        if (startDay === 0) startDay = 7;
+
+        for (let i = 1; i < startDay; i++) {
+            const emp = document.createElement('div');
+            emp.className = 'day-cell';
+            emp.style.background = '#fcfcfc';
+            container.appendChild(emp);
+        }
+
+        const totalDays = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const now = new Date();
+
+        for (let d = 1; d <= totalDays; d++) {
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+
+            if (d === now.getDate() && targetMonth === now.getMonth() && targetYear === now.getFullYear()) {
+                cell.classList.add('today');
+            }
+
+            cell.innerHTML = `<div class="num">${d}</div>`;
+
+            const isoDateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayEvents = allEvents.filter(e => e.event_date === isoDateStr);
+
+            dayEvents.forEach(e => {
+                const badge = document.createElement('div');
+                badge.className = `badge ${e.type}`;
+                badge.innerText = e.title;
+
+                if (e.type === 'custom') {
+                    badge.onclick = (event) => {
+                        event.stopPropagation();
+                        if (confirm(`Удалить событие "${e.title}"?`)) removeEvent(e.id);
+                    };
+                }
+                cell.appendChild(badge);
+            });
+            container.appendChild(cell);
+        }
+    }
+
+    async function addCustomEvent() {
+        const title = el('event-title').value;
+        const date = el('event-date').value;
+        if(!title || !date) return alert("Заполните все поля!");
+
+        const res = await fetch(`${BASE_URL}/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
+            body: JSON.stringify({ title, event_date: date })
+        });
+        if (res.ok) {
+            el('event-title').value = '';
+            renderGrid();
+        } else {
+            alert("Ошибка формата даты (необходим формат ГГГГ-ММ-ДД)");
+        }
+    }
+
+    async function removeEvent(id) {
+        const res = await fetch(`${BASE_URL}/events/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${userToken}` }
+        });
+        if (res.ok) renderGrid();
+    }
+
+    function el(id) { return document.getElementById(id); }
+</script>
+</body>
+</html>
