@@ -15,7 +15,7 @@ jobs:
       - name: Клонирование репозитория
         uses: actions/checkout@v4
 
-      - name: Настройка Python 3.11
+      - name: Настройка Python 3.8
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
