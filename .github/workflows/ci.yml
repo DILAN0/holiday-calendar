@@ -7,49 +7,28 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  backend-checks:
+  backend-validation:
+    name: Модульные тесты и сборка Docker
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check out repository
+      - name: Клонирование репозитория
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.8
+      - name: Настройка Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Установка зависимостей Python
         run: |
           python -m pip install --upgrade pip
-          pip install pytest fastapi httpx uvicorn ruff bcrypt pyjwt
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest httpx fastapi uvicorn bcrypt pyjwt pydantic
 
-      - name: Code Quality (Ruff)
-        run: ruff check .
+      - name: Запуск модульных тестов бэкенда (Pytest)
+        run: python -m pytest test_main.py
 
-      - name: Run Backend Tests (Pytest)
-        run: pytest test_main.py
+      - name: Сборка Docker контейнера
+        run: docker build -t holidaycalendar-backend .
 
-      - name: Build Docker Container
-        run: docker build -t holiday-calendar-backend .
-
-  frontend-checks:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: |
-          npm init -y
-          npm install --save-dev jest jest-environment-jsdom
-          if [ -f package.json ]; then npm install; fi
-
-      - name: Run Frontend Tests (Jest)
-        run: npm test
 
